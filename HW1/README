@@ -1,0 +1,4 @@
+python version: 3.9.4
+using packages: numpy
+
+By changing the "PROBLEM_NUM", you can run with different problem setup.

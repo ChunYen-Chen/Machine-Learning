@@ -29,9 +29,9 @@ ERROR_CE       = 2         #
 # Functions
 # ==============================
 """
-Input  : N       : number of samples.
+Input  : 
 Output : 
-Note   : 1. The dimension of the variance and mean should be the same.
+Note   :
 """
 def LoadData( data_file, x_0, scale_type, scale_size ):
     data = np.loadtxt( data_file )
@@ -218,8 +218,7 @@ if __name__ == '__main__':
     for i in range( EXP_TIME ):
     #   If random choose
         if trans_type == Q_LOWER_RANDOM:
-            trans_idx = np.random.randint( 10, size = (Q_order) )
-            print(trans_idx)
+            trans_idx = np.random.choice( 10, size = (Q_order), replace=False )
 
         if PROBLEM_NUM == 15: Q_order = i+1
         
@@ -228,13 +227,12 @@ if __name__ == '__main__':
         x_test_trans  = TransformData( x_test,  Q_order, trans_type, trans_idx )
         
     #   Linear Regression
-        #print(x_train_trans.shape, y_train.shape)
         w_lin = LinearRegression( x_train_trans, y_train )
 
     #   Calculate Error
         E_in  = Error( x_train_trans, y_train, w_lin, error_type )
         E_out = Error( x_test_trans,  y_test,  w_lin, error_type )
-        err  += np.abs(E_in - E_out)
+        err  += np.abs( E_in - E_out )
 
         if PROBLEM_NUM == 15: err_15.append( np.abs(E_in - E_out) )
 

@@ -43,28 +43,28 @@ def LoadData( data_file, x_0, scale_type, scale_size ):
     
     return x, y
 
-
-def UpdatePower( power, start, tot ):
+def UpdatePower( power, tot ):
     N = len( power )
-    if start == N:
-        return power, start
-    
-    if power[-1] == tot-1:
-        power[-1] = 0
-        power[start] = 0
-        power[start+1] = tot
-        start += 1
-        return power, start
+    if power[N-1] == tot:
+        return power
 
-    for i in range(N-1, 0-1, -1):
-        if power[i] == 0:   pass
-        elif i == N-1:      pass
-        else:
-            power[i  ] -= 1
+    if power[N-1] != 0:
+        for i in range(N-2, -1, -1):
+            if power[i] == 0: continue
+            power[i] -= 1
             power[i+1] += 1
+            temp = power[N-1]
+            power[N-1] = 0
+            power[i+1] += temp
             break
-    return power, start
+        return power
 
+    for i in range(N-2, 0-1, -1):
+        if power[i] == 0: continue
+        power[i  ] -= 1
+        power[i+1] += 1
+        break
+    return power
 
 def TransformData( x, Q, Q_mode, idx ):
     N   = x.shape[0]
@@ -86,7 +86,7 @@ def TransformData( x, Q, Q_mode, idx ):
                 for k in range( dim ):
                     if power[k] == 0: continue
                     x_new[:, counter] *= x[:, k+1]**power[k]
-                power, start = UpdatePower( power, start, i+1 )
+                power = UpdatePower( power, i+1 )
                 counter += 1
 
     elif Q_mode == Q_HOMOGENEOUS:

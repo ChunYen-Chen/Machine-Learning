@@ -1,5 +1,13 @@
 import numpy as np
-# load data
+
+def WriteData( file_name, data, y ):
+    print( 'Writing the file to %s'%file_name )
+    with open( file_name, 'w' ) as f:
+        for i in range(len(y)):
+            f.write( '%s,%s\n'%(data[i]['Customer ID'], str(y[i])) )
+    return
+
+
 '''
 Input       : file_name : 
 Output      : 
@@ -44,14 +52,22 @@ def LoadData( ID_idx, data, file_name ):
     for i in range(N):
         lines[i+1] = lines[i+1].strip('\n')
         temp       = lines[i+1].split(',')
+        N_data = len(temp)
+        N_category = len(category)
 
         # check if the id exist in the current data
         idx = ID_idx.get(temp[0])
         if idx == None: continue
 
-        for j in range(len(category)):
-            #if temp[j] == '': temp[j] = 'Missing'
-            data[idx][category[j]] = DataTransfer ( category[j], temp[j] )
+        for j in range(N_category):
+            if N_data != N_category: 
+                if category[j] == 'Lat Long': cell_data = temp[j][1:]+','+temp[j+1][:-1]
+                elif category[j] == 'Latitude': cell_data = temp[j+1]
+                elif category[j] == 'Longitude': cell_data = temp[j+1]
+                else: cell_data = temp[j]
+            else:
+                cell_data = temp[j]
+            data[idx][category[j]] = DataTransfer ( category[j], cell_data )
     return data
 
 
@@ -69,12 +85,12 @@ Married                           : No: 0.0, Yes: 1.0
 Dependents                        : No: 0.0, Yes: 1.0
 Number of Dependents              : float
 
-Country                           : Class
-State                             : Class
+Country                           : All United State
+State                             : All California
 City                              : Class
 
 Zip Code                          : float
-Lat Long                          : float
+Lat Long                          : (float, float)
 Latitude                          : float
 Longitude                         : float
 
@@ -83,7 +99,7 @@ Quarter                           : All Q3
 Referred a Friend                 : No: 0.0, Yes: 1.0
 Number of Referrals               : float
 Tenure in Months                  : float
-Offer                             : Offer A: 1.0, Offer B: 2.0, Offer C: 3.0, Offer D: 4.0, Offer E: 5.0
+Offer                             : None: 0.0, Offer A: 1.0, Offer B: 2.0, Offer C: 3.0, Offer D: 4.0, Offer E: 5.0
 Phone Service                     : No: 0.0, Yes: 1.0
 Avg Monthly Long Distance Charges : float
 Multiple Lines                    : No: 0.0, Yes: 1.0
@@ -126,8 +142,8 @@ def DataTransfer( category, string ):
     elif category == 'City':                              return string
     elif category == 'Zip Code':                          return numberTrans(string)
     elif category == 'Lat Long':                          return string #TODO
-    elif category == 'Latitude':                          return string #TODO
-    elif category == 'Longitude':                         return string #TODO
+    elif category == 'Latitude':                          return numberTrans(string)
+    elif category == 'Longitude':                         return numberTrans(string)
     elif category == 'Satisfaction Score':                return numberTrans(string)
     elif category == 'Quarter':                           return string
     elif category == 'Referred a Friend':                 return YesNoTrans(string)
@@ -242,11 +258,6 @@ def DataSelect( data, parameters, throw=True, fill=False, fill_num=0.0 ):
             for j in data[i]:
                 if data[i][j] == None: temp = True
             if not temp: idxs.append(i)
-    elif fill:
-        idxs = [i for i in range(len(data))]
-        for i in range( len(data) ):
-            for j in data[i]:
-                if data[i][j] == None: temp = fill_num
     else:
         idxs = [i for i in range(len(data))]
 
@@ -255,7 +266,9 @@ def DataSelect( data, parameters, throw=True, fill=False, fill_num=0.0 ):
     y = np.zeros( len(idxs) )
     for i in range(len(idxs)):
         for j in range(len(parameters)-1):
-            x[i, j+1] = data[idxs[i]][parameters[j]]
+            temp = data[idxs[i]][parameters[j]]
+            if fill and temp == None: temp = fill_num
+            x[i, j+1] = temp
         y[i] = data[idxs[i]][parameters[-1]]
 
     return x, y
@@ -294,6 +307,21 @@ def FixReferred( data ):
         if   data[i]['Number of Referrals'] == None: continue
         elif data[i]['Number of Referrals'] == 0.0:  data[i]['Referred a Friend'] = 0.0
         elif data[i]['Number of Referrals'] != 0.0:  data[i]['Referred a Friend'] = 1.0
+    return data
+    
+
+
+def FixLoction( data ):
+    print('Fixing the Location category.')
+    for i in range(len(data)):
+        if data[i]['Lat Long'] != None and data[i]['Lat Long'] != '':
+            Lat_Long = data[i]['Lat Long'].split(', ')
+            data[i]['Latitude']  = float(Lat_Long[0])
+            data[i]['Longitude'] = float(Lat_Long[1])
+        else:
+            if data[i]['Latitude']  == None: continue
+            if data[i]['Longitude'] == None: continue
+            data[i]['Lat Long'] = str(data[i]['Latitude']) + ', ' + str(data[i]['Longitude'])
     return data
 
 

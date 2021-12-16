@@ -1,6 +1,6 @@
 import Load
 import Error
-import sklearn
+from sklearn.linear_model import LogisticRegression
 
 if __name__ == '__main__':
     test_data_file  = './data/Test_IDs.csv'
@@ -43,10 +43,13 @@ if __name__ == '__main__':
     data_test  = Load.FixDependent( data_test  )
     
     # referred fixed
+    data_train = Load.FixLoction( data_train )
+    data_test  = Load.FixLoction( data_test  )
+    
+    # location fixed
     data_train = Load.FixReferred( data_train )
     data_test  = Load.FixReferred( data_test  )
     
-    # location fixed
     # internet sevice fixed
     data_train = Load.FixInetrnet( data_train )
     data_test  = Load.FixInetrnet( data_test  )
@@ -59,7 +62,14 @@ if __name__ == '__main__':
 
     # Take the data
     x_train, y_train = Load.DataSelect( data_train, train_parameter )
+    x_test,  y_test  = Load.DataSelect( data_test,  train_parameter, False, True, 0.0 )
     
     # Learning
+    reg = LogisticRegression(random_state=0).fit( x_train, y_train )
 
     # Predicting
+    y_test = reg.predict( x_test )
+
+    # Write to file
+    write_file = './data/result.csv'
+    Load.WriteData( write_file, data_test, y_test )

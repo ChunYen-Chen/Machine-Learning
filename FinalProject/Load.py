@@ -1,10 +1,19 @@
 import numpy as np
+import copy
+
+
+"""
+General Parameter: 
+    DoCpoy: If True, copy the input list, but it is time consuming.
+"""
+
+
 
 def WriteData( file_name, data, y ):
     print( 'Writing the file to %s'%file_name )
     with open( file_name, 'w' ) as f:
         for i in range(len(y)):
-            f.write( '%s,%s\n'%(data[i]['Customer ID'], str(y[i])) )
+            f.write( '%s,%s\n'%(data[i]['Customer ID'], str(int(y[i]))) )
     return
 
 
@@ -37,8 +46,10 @@ Output      :
 Description : 
 Note        :
 '''
-def LoadData( ID_idx, data, file_name ):
+def LoadData( ID_idx, data_in, file_name, DoCopy=False ):
     print( 'Loading: %s'%(file_name) )
+
+    data = copy.deepcopy(data_in) if DoCopy else data_in
     
     with open(file_name, 'r') as f:
         lines = f.readlines()
@@ -175,8 +186,7 @@ def DataTransfer( category, string ):
     elif category == 'Total Revenue':                     return numberTrans(string)
     elif category == 'Churn Category':                    return OtherTrans(string)
     else:
-        print("Can't find the category: %s"%(string))
-        exit()
+        exit("Can't find the category: %s"%(string))
     return 
 
 
@@ -187,8 +197,7 @@ def YesNoTrans( string ):
     elif string == 'Female': return 1.0
     elif string == '':       return None
     else:
-        print("Input string is not 'Yes' or 'No': %s"%(string))
-        exit()
+        exit("Input string is not 'Yes' or 'No': %s"%(string))
     return
 
 def numberTrans( string ):
@@ -226,13 +235,15 @@ def OtherTrans( string ):
 
     elif string == '': return None
     else:
-        print("Input string is not the given string: %s"%(string))
-        exit()
+        exit("Input string is not the given string: %s"%(string))
     return
 
 
-def DataFillEmpty( data, category ):
+def DataFillEmpty( data_in, category, DoCopy=False ):
     print('Filling the empty data with None.')
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+
     for i in range(len(data)):
         for key in category:
             if key not in data[i]:
@@ -274,8 +285,11 @@ def DataSelect( data, parameters, throw=True, fill=False, fill_num=0.0 ):
     return x, y
 
 
-def FixAge( data ):
+def FixAge( data_in, DoCopy=False ):
     print('Fixing the Age category.')
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+    
     for i in range(len(data)):
         if data[i]['Age'] == None: continue
 
@@ -287,8 +301,11 @@ def FixAge( data ):
     return data
 
 
-def FixDependent( data ):
+def FixDependent( data_in, DoCopy=False ):
     print('Fixing the Dependent category.')
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+    
     for i in range(len(data)):
         if data[i]['Dependents'] == 0.0:  data[i]['Number of Dependents'] = 0.0
         
@@ -299,8 +316,11 @@ def FixDependent( data ):
     return data
 
 
-def FixReferred( data ):
+def FixReferred( data_in, DoCopy=False ):
     print('Fixing the Referred category.')
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+    
     for i in range(len(data)):
         if data[i]['Referred a Friend'] == 0.0:  data[i]['Number of Referrals'] = 0.0
         
@@ -311,8 +331,11 @@ def FixReferred( data ):
     
 
 
-def FixLoction( data ):
+def FixLoction( data_in, DoCopy=False ):
     print('Fixing the Location category.')
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+    
     for i in range(len(data)):
         if data[i]['Lat Long'] != None and data[i]['Lat Long'] != '':
             Lat_Long = data[i]['Lat Long'].split(', ')
@@ -325,8 +348,11 @@ def FixLoction( data ):
     return data
 
 
-def FixInetrnet( data ):
+def FixInetrnet( data_in, DoCopy=False ):
     print('Fixing the Internet category.')
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+    
     for i in range(len(data)):
         if   data[i]['Internet Type'] == None: continue
         elif data[i]['Internet Type'] == 0.0:  data[i]['Internet Service'] = 0.0
@@ -334,8 +360,11 @@ def FixInetrnet( data ):
     return data
 
 
-def FixChurn( data, learn_type ):
+def FixChurn( data_in, learn_type, DoCopy=False ):
     print('Fixing the Internet category.')
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+    
     for i in range(len(data)):
         if learn_type == 0:
             break

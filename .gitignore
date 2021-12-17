@@ -1,3 +1,4 @@
+.DS_Store
 ./FinalProject/__pycache__/*
 ./FinalProject/__pycache__
 ./FinalProject/data/result.csv

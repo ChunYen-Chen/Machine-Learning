@@ -9,11 +9,14 @@ General Parameter:
 
 
 
-def WriteData( file_name, data, y ):
+def WriteData( file_name, data, y, y_true=None ):
     print( 'Writing the file to %s'%file_name )
     with open( file_name, 'w' ) as f:
         for i in range(len(y)):
-            f.write( '%s,%s\n'%(data[i]['Customer ID'], str(int(y[i]))) )
+            if (y_true != None).all:
+                f.write( '%s,%s,%s\n'%(data[i]['Customer ID'], str(int(y[i])), str(int(y_true[i]))) )
+            else:
+                f.write( '%s,%s\n'%(data[i]['Customer ID'], str(int(y[i]))) )
     return
 
 
@@ -105,7 +108,7 @@ Lat Long                          : (float, float)
 Latitude                          : float
 Longitude                         : float
 
-Satisfaction Score                : float
+Satisfaction Score                : float 1, 2, 3, 4, 5
 Quarter                           : All Q3
 Referred a Friend                 : No: 0.0, Yes: 1.0
 Number of Referrals               : float
@@ -116,7 +119,7 @@ Avg Monthly Long Distance Charges : float
 Multiple Lines                    : No: 0.0, Yes: 1.0
 
 Internet Service                  : No: 0.0, Yes: 1.0
-Internet Type                     : No: 0.0, DSL: 1.0, Fiber: 2.0, Optic: 3.0, Cable: 4.0
+Internet Type                     : No: 0.0, DSL: 1.0, Fiber Optic: 3.0, Cable: 3.0
 
 Avg Monthly GB Download           : float
 Online Security                   : No: 0.0, Yes: 1.0
@@ -126,16 +129,19 @@ Premium Tech Support              : No: 0.0, Yes: 1.0
 Streaming TV                      : No: 0.0, Yes: 1.0
 Streaming Movies                  : No: 0.0, Yes: 1.0
 Streaming Music                   : No: 0.0, Yes: 1.0
+
 Unlimited Data                    : No: 0.0, Yes: 1.0
+Total Extra Data Charges          : float *with the max=150
+
 Contract                          : Month-to-Month: 1.0, One Year: 2.0, Two Year: 3.0
 Paperless Billing                 : No: 0.0, Yes: 1.0
 Payment Method                    : Bank Withdrawal: 1.0, Credit Card: 2.0, Mailed Chack: 3.0
 Monthly Charge                    : float
 Total Charges                     : float
 Total Refunds                     : float
-Total Extra Data Charges          : float
 Total Long Distance Charges       : float
 Total Revenue                     : float
+
 Churn Category                    : No Churn: 0, Competitor: 1, Dissatisfaction: 2, Attitude: 3, Price: 4, Other: 5
 """
 def DataTransfer( category, string ):
@@ -255,11 +261,12 @@ def DataFillEmpty( data_in, category, DoCopy=False ):
 Input       : throw    : Don't pick the data with empty value.
               fill_num : fill the None with number
               parameters: The last parameter should always be the y of the data
+              missing_array : return the same size array as x but with 0 and 1. 1: missing
 Output      : 
 Description : 
 Note        :
 '''
-def DataSelect( data, parameters, throw=True, fill=False, fill_num=0.0 ):
+def DataSelect( data, parameters, throw=True, fill=False, fill_num=0.0, missing_array=False ):
     print('Selecting the data with given category.')
     # Check if None
     idxs = []
@@ -273,15 +280,20 @@ def DataSelect( data, parameters, throw=True, fill=False, fill_num=0.0 ):
         idxs = [i for i in range(len(data))]
 
     # Select data
-    x = np.ones( (len(idxs), len(parameters)) )
-    y = np.zeros( len(idxs) )
+    x    = np.ones( (len(idxs), len(parameters)) )
+    miss = np.zeros( (len(idxs), len(parameters)) )
+    y    = np.zeros( len(idxs) )
     for i in range(len(idxs)):
         for j in range(len(parameters)-1):
             temp = data[idxs[i]][parameters[j]]
             if fill and temp == None: temp = fill_num
+            if missing_array and temp == None: miss[i, j+1] = 1
             x[i, j+1] = temp
-        y[i] = data[idxs[i]][parameters[-1]]
+        temp = data[idxs[i]][parameters[-1]]
+        y[i] = temp if temp != None else 0.0
 
+    if missing_array:  return x, y, miss
+    
     return x, y
 
 
@@ -330,7 +342,6 @@ def FixReferred( data_in, DoCopy=False ):
     return data
     
 
-
 def FixLoction( data_in, DoCopy=False ):
     print('Fixing the Location category.')
     
@@ -360,8 +371,42 @@ def FixInetrnet( data_in, DoCopy=False ):
     return data
 
 
+def FixDataUsage( data_in, DoCopy=False ):
+    print('Fixing the Data Usage category.')
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+    
+    for i in range(len(data)):
+        if data[i]['Unlimited Data'] == 1.0:  data[i]['Total Extra Data Charges'] = 0.0
+        
+        if   data[i]['Total Extra Data Charges'] == None: continue
+        elif data[i]['Total Extra Data Charges'] != 0.0:  data[i]['Unlimited Data'] = 0.0
+    return data
+
+
+def FixLongDistanceCharge( data_in, DoCopy=False ):
+    print('Fixing the Long Distance Charge and Tenure in Months category.')
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+    
+    for i in range(len(data)):
+        tot = data[i]['Total Long Distance Charges']
+        num = data[i]['Tenure in Months']
+        avg = data[i]['Avg Monthly Long Distance Charges']
+
+        if tot == None and num != None and avg != None:
+            data[i]['Total Long Distance Charges'] = num * avg
+        if tot != None and num != None and avg == None:
+            data[i]['Avg Monthly Long Distance Charges'] = tot / num
+        if tot != None and num == None and avg != None:
+            if avg == 0: continue
+            data[i]['Tenure in Months'] = tot / avg
+        
+    return data
+
+
 def FixChurn( data_in, learn_type, DoCopy=False ):
-    print('Fixing the Internet category.')
+    print('Fixing the Churn category.')
     
     data = copy.deepcopy(data_in) if DoCopy else data_in
     
@@ -373,3 +418,143 @@ def FixChurn( data_in, learn_type, DoCopy=False ):
             elif data[i]['Churn Category'] == 0.0:  data[i]['Churn Category'] = 0.0
             elif data[i]['Churn Category'] != 0.0:  data[i]['Churn Category'] = 1.0
     return data
+
+
+"""
+Suggest to be the binary or the numerical
+"""
+def AppdendCategories( data_in, new_categories, values, DoCopy=False ):
+    print('Adding new categories: ', new_categories)
+
+    # TODO Check the dimension of values
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+
+    for i in range(len(data)):
+        for j in range(len(new_categories)):
+            data[i][new_categories[j]] = values[i][j]
+    return data
+
+
+def DataFilter( data, parameters, DoCopy=False ):
+    print('')
+
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+    
+    return
+
+
+"""
+Use this function after DataFillEmpty
+"""
+def Category2Binary( data_in, DoCopy=False ):
+    print('Transfer category label to multiple binary labels.')
+
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+
+    target = ['Offer', 'Internet Type', 'Contract', 'Payment Method', 'Satisfaction Score'] # 'City' should be one of them.
+    target_status = [False for i in range(len(target))] # 'City' should be one of them.
+    
+    # 1. Check if the label exist.
+    for i in range(len(target)):
+        if target[i] in data[0]: target_status[i] = True
+
+    # 2. Brake into differnt labels
+    for i in range(len(data)):
+        if target_status[0]:
+            initializer = None if data[i]['Offer'] == None else 0.0
+            
+            data[i]['Offer None'] = initializer
+            data[i]['Offer A']    = initializer
+            data[i]['Offer B']    = initializer
+            data[i]['Offer C']    = initializer
+            data[i]['Offer D']    = initializer
+            data[i]['Offer E']    = initializer
+
+            if data[i]['Offer'] == 0.0:  data[i]['Offer None'] = 1.0
+            if data[i]['Offer'] == 1.0:  data[i]['Offer A']    = 1.0
+            if data[i]['Offer'] == 2.0:  data[i]['Offer B']    = 1.0
+            if data[i]['Offer'] == 3.0:  data[i]['Offer C']    = 1.0
+            if data[i]['Offer'] == 4.0:  data[i]['Offer D']    = 1.0
+            if data[i]['Offer'] == 5.0:  data[i]['Offer E']    = 1.0
+
+        if target_status[1]:
+            initializer = None if data[i]['Internet Type'] == None else 0.0
+            
+            data[i]['Internet None']        = initializer
+            data[i]['Internet DSL']         = initializer
+            data[i]['Internet Fiber Optic'] = initializer
+            data[i]['Internet Cable']       = initializer
+
+            if data[i]['Internet Type'] == 0.0:  data[i]['Internet None']        = 1.0
+            if data[i]['Internet Type'] == 1.0:  data[i]['Internet DSL']         = 1.0
+            if data[i]['Internet Type'] == 2.0:  data[i]['Internet Fiber Optic'] = 1.0
+            if data[i]['Internet Type'] == 3.0:  data[i]['Internet Cable']       = 1.0
+
+        if target_status[2]:
+            initializer = None if data[i]['Contract'] == None else 0.0
+            
+            data[i]['Contract M2M'] = initializer
+            data[i]['Contract 1Y']  = initializer
+            data[i]['Contract 2Y']  = initializer
+
+            if data[i]['Contract'] == 1.0:  data[i]['Contract M2M'] = 1.0
+            if data[i]['Contract'] == 2.0:  data[i]['Contract 1Y']  = 1.0
+            if data[i]['Contract'] == 3.0:  data[i]['Contract 2Y']  = 1.0
+
+        if target_status[3]:
+            initializer = None if data[i]['Payment Method'] == None else 0.0
+            
+            data[i]['Payment Bank']   = initializer
+            data[i]['Payment Credit'] = initializer
+            data[i]['Payment Mailed'] = initializer
+
+            if data[i]['Payment Method'] == 1.0:  data[i]['Payment Bank']   = 1.0
+            if data[i]['Payment Method'] == 2.0:  data[i]['Payment Credit'] = 1.0
+            if data[i]['Payment Method'] == 3.0:  data[i]['Payment Mailed'] = 1.0
+        
+        if target_status[4]:
+            initializer = None if data[i]['Satisfaction Score'] == None else 0.0
+            
+            data[i]['Satifaction 1'] = initializer
+            data[i]['Satifaction 2'] = initializer
+            data[i]['Satifaction 3'] = initializer
+            data[i]['Satifaction 4'] = initializer
+            data[i]['Satifaction 5'] = initializer
+
+            if data[i]['Satisfaction Score'] == 1.0:  data[i]['Satisfaction 1'] = 1.0
+            if data[i]['Satisfaction Score'] == 2.0:  data[i]['Satisfaction 2'] = 1.0
+            if data[i]['Satisfaction Score'] == 3.0:  data[i]['Satisfaction 3'] = 1.0
+            if data[i]['Satisfaction Score'] == 4.0:  data[i]['Satisfaction 4'] = 1.0
+            if data[i]['Satisfaction Score'] == 5.0:  data[i]['Satisfaction 5'] = 1.0
+
+    extra_category = []
+    if target_status[0]:
+        extra_category.append('Offer None')
+        extra_category.append('Offer A')
+        extra_category.append('Offer B')
+        extra_category.append('Offer C')
+        extra_category.append('Offer D')
+        extra_category.append('Offer E')
+    if target_status[1]:
+        extra_category.append('Internet None')
+        extra_category.append('Internet DSL')
+        extra_category.append('Internet Fiber Optic')
+        extra_category.append('Internet Cable')
+    if target_status[2]:
+        extra_category.append('Contract M2M')
+        extra_category.append('Contract 1Y')
+        extra_category.append('Contract 2Y')
+    if target_status[3]:
+        extra_category.append('Payment Bank')
+        extra_category.append('Payment Credit')
+        extra_category.append('Payment Mailed')
+    if target_status[4]:
+        extra_category.append('Satisfaction 1')
+        extra_category.append('Satisfaction 2')
+        extra_category.append('Satisfaction 3')
+        extra_category.append('Satisfaction 4')
+        extra_category.append('Satisfaction 5')
+
+
+    return data, extra_category

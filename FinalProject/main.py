@@ -1,6 +1,7 @@
 import Load
 import Error
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LinearRegression
 
 if __name__ == '__main__':
     # ====================================================================================================
@@ -68,31 +69,78 @@ if __name__ == '__main__':
     data_train = Load.FixInetrnet( data_train )
     data_test  = Load.FixInetrnet( data_test  )
 
+    # data usage fixed
+    data_train = Load.FixDataUsage( data_train )
+    data_test  = Load.FixDataUsage( data_test  )
+    
+    # long distance charge fixed
+    data_train = Load.FixLongDistanceCharge( data_train )
+    data_test  = Load.FixLongDistanceCharge( data_test  )
+
+    # separate the category label to binary label
+    data_train, extra_category = Load.Category2Binary( data_train )
+    data_test,  extra_category = Load.Category2Binary( data_test  )
+    #print(extra_category) 
+
     # Churn or not
     data_train = Load.FixChurn( data_train, learn_type, DoCopy=True )
     data_test  = Load.FixChurn( data_test,  learn_type, DoCopy=True )
 
-    # Select the parameter  ***The last parameter should be "Churn Category" which is "y"***
-    train_parameter = [ 'Gender', 'Age', 'Under 30', 'Churn Category' ]
+    # ====================================================================================================
+    # Select the training data
+    # ====================================================================================================
+    # Select the parameter
+    # ***For the classification, the last parameter should be "Churn Category" which is "y"***
+    """
+    train_parameter = [ 'Offer None', 'Offer A', 'Offer B', 'Offer C', 'Offer D', 'Offer E',\
+                        'Phone Service', 'Avg Monthly Long Distance Charges', 'Multiple Lines',\
+                        'Internet None', 'Internet DSL', 'Internet Fiber Optic', 'Internet Cable',\
+                        'Online Security', 'Online Backup', 'Device Protection Plan',\
+                        'Premium Tech Support', 'Streaming TV', 'Streaming Movies', 'Streaming Music',\
+                        'Unlimited Data', 'Paperless Billing', 'Monthly Charge']
+    """
+    train_parameter = [ 'Tenure in Months', 'Churn Category' ]
 
     # Take the data
-    x_train, y_train = Load.DataSelect( data_train, train_parameter )
-    x_test,  y_test  = Load.DataSelect( data_test,  train_parameter, False, True, 0.0 )
+    x_train, y_train, missing_train = Load.DataSelect( data_train, train_parameter, missing_array=True )
+    x_test,  y_test,  missing_test  = Load.DataSelect( data_test,  train_parameter, False, True, 0.0, True )
+    
     
     
     # ====================================================================================================
     # Learning
     # ====================================================================================================
-    reg = LogisticRegression(random_state=0).fit( x_train, y_train )
+    #reg = LogisticRegression(random_state=0).fit( x_train, y_train )
+    reg = LinearRegression().fit( x_train, y_train )
 
     
     # ====================================================================================================
     # Predicting
     # ====================================================================================================
-    y_test = reg.predict( x_test )
+    y_predict = reg.predict( x_test )
+
+    print(reg.score( x_train, y_train ))
+
+    for i in range(len(train_parameter)):
+        if i == 0 :
+            print('%35s \t %.5f'%('x0', reg.coef_[i]))
+            continue
+        print('%35s \t %.5f'%(train_parameter[i-1], reg.coef_[i]))
+    
+    print(reg.intercept_)
 
     
     # ====================================================================================================
     # Write to file
     # ====================================================================================================
-    Load.WriteData( write_file, data_test, y_test )
+    Load.WriteData( write_file, data_test, y_predict, y_test )
+    
+
+    
+    # ====================================================================================================
+    # Write to file
+    # ====================================================================================================
+    err = Error.Error( x_train, y_train, reg.coef_, 1 )
+    print(err)
+    err = Error.Error_withTrue( y_predict, y_test, 1 )
+    print(err)

@@ -9,14 +9,39 @@ General Parameter:
 
 
 
-def WriteData( file_name, data, y, y_true=None ):
+def WriteResult( file_name, data, y, y_true=None ):
     print( 'Writing the file to %s'%file_name )
     with open( file_name, 'w' ) as f:
+        f.write('Customer ID,Churn Category\n')
         for i in range(len(y)):
-            if (y_true != None).all:
+            if type(y_true) != type(None):
                 f.write( '%s,%s,%s\n'%(data[i]['Customer ID'], str(int(y[i])), str(int(y_true[i]))) )
             else:
                 f.write( '%s,%s\n'%(data[i]['Customer ID'], str(int(y[i]))) )
+    return
+
+
+def WriteData( file_name, data ):
+    print( 'Writing all data to %s'%file_name )
+    with open( file_name, 'w' ) as f:
+        all_category = []
+        for i in data[0]:
+            if i == 'Customer ID':f.write('%s'%i)
+            else: f.write(',%s'%i)
+            all_category.append(i)
+        
+        f.write('\n')
+        
+        for i in range(len(data)):
+            for j in all_category:
+                cell_data = str(data[i][j])
+                if j == 'Customer ID':
+                    f.write('%s'%cell_data)
+                elif j == 'Lat Long':
+                    f.write(',"%s"'%cell_data)
+                else:
+                    f.write(',%s'%cell_data)
+            f.write('\n')
     return
 
 
@@ -45,11 +70,12 @@ def LoadIDs( file_name ):
 
 '''
 Input       : file_name : 
+              DonsTrans : Have done the data transformation
 Output      : 
 Description : 
 Note        :
 '''
-def LoadData( ID_idx, data_in, file_name, DoCopy=False ):
+def LoadData( ID_idx, data_in, file_name, DoCopy=False, DoneTrans=False ):
     print( 'Loading: %s'%(file_name) )
 
     data = copy.deepcopy(data_in) if DoCopy else data_in
@@ -73,15 +99,29 @@ def LoadData( ID_idx, data_in, file_name, DoCopy=False ):
         idx = ID_idx.get(temp[0])
         if idx == None: continue
 
+        LatLong = 0
         for j in range(N_category):
             if N_data != N_category: 
-                if category[j] == 'Lat Long': cell_data = temp[j][1:]+','+temp[j+1][:-1]
-                elif category[j] == 'Latitude': cell_data = temp[j+1]
-                elif category[j] == 'Longitude': cell_data = temp[j+1]
-                else: cell_data = temp[j]
+                if category[j] == 'Lat Long': 
+                    cell_data = temp[j][1:]+','+temp[j+1][:-1]
+                    LatLong = 1
+                else: 
+                    cell_data = temp[j+LatLong]
             else:
                 cell_data = temp[j]
-            data[idx][category[j]] = DataTransfer ( category[j], cell_data )
+            
+            if DoneTrans:
+                if cell_data == 'None' : cell_data = '' 
+
+                if   category[j] == 'Customer ID': data[idx][category[j]] = cell_data
+                elif category[j] == 'Country':     data[idx][category[j]] = cell_data
+                elif category[j] == 'State':       data[idx][category[j]] = cell_data
+                elif category[j] == 'City':        data[idx][category[j]] = cell_data
+                elif category[j] == 'Lat Long':    data[idx][category[j]] = cell_data
+                elif category[j] == 'Quarter':     data[idx][category[j]] = cell_data
+                else: data[idx][category[j]] = numberTrans( cell_data )
+            else:
+                data[idx][category[j]] = DataTransfer( category[j], cell_data )
     return data
 
 
@@ -206,6 +246,7 @@ def YesNoTrans( string ):
         exit("Input string is not 'Yes' or 'No': %s"%(string))
     return
 
+
 def numberTrans( string ):
     if string == '': return None
     return float(string)
@@ -295,6 +336,20 @@ def DataSelect( data, parameters, throw=True, fill=False, fill_num=0.0, missing_
     if missing_array:  return x, y, miss
     
     return x, y
+
+
+def DataScaling( data, category, scale_type=0, scale_size=1.0, DoCopy=False ):
+    print('Scaling the %s.'%category)
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+
+    for i in range(len(data)):
+        if data[i][category] == None:  continue
+        if   scale_type == 1:  data[i][category] = scale_size * data[i][category]
+        elif scale_type == 2:  data[i][category] = np.log(data[i][category])
+        else:  exit('The scale_type is not supported: %d'%scale_type)
+
+    return data
 
 
 def FixAge( data_in, DoCopy=False ):
@@ -415,13 +470,13 @@ def FixChurn( data_in, learn_type, DoCopy=False ):
             break
         elif learn_type == 1:
             if   data[i]['Churn Category'] == None: continue
-            elif data[i]['Churn Category'] == 0.0:  data[i]['Churn Category'] = 0.0
+            elif data[i]['Churn Category'] == 0.0:  data[i]['Churn Category'] = -1.0
             elif data[i]['Churn Category'] != 0.0:  data[i]['Churn Category'] = 1.0
     return data
 
 
 """
-Suggest to be the binary or the numerical
+Suggested to be the binary or the numerical
 """
 def AppdendCategories( data_in, new_categories, values, DoCopy=False ):
     print('Adding new categories: ', new_categories)
@@ -452,7 +507,7 @@ def Category2Binary( data_in, DoCopy=False ):
 
     data = copy.deepcopy(data_in) if DoCopy else data_in
 
-    target = ['Offer', 'Internet Type', 'Contract', 'Payment Method', 'Satisfaction Score'] # 'City' should be one of them.
+    target = ['Offer', 'Internet Type', 'Contract', 'Payment Method', 'Satisfaction Score', 'Churn Category'] # 'City' should be one of them.
     target_status = [False for i in range(len(target))] # 'City' should be one of them.
     
     # 1. Check if the label exist.
@@ -516,17 +571,34 @@ def Category2Binary( data_in, DoCopy=False ):
         if target_status[4]:
             initializer = None if data[i]['Satisfaction Score'] == None else 0.0
             
-            data[i]['Satifaction 1'] = initializer
-            data[i]['Satifaction 2'] = initializer
-            data[i]['Satifaction 3'] = initializer
-            data[i]['Satifaction 4'] = initializer
-            data[i]['Satifaction 5'] = initializer
+            data[i]['Satisfaction 1'] = initializer
+            data[i]['Satisfaction 2'] = initializer
+            data[i]['Satisfaction 3'] = initializer
+            data[i]['Satisfaction 4'] = initializer
+            data[i]['Satisfaction 5'] = initializer
 
             if data[i]['Satisfaction Score'] == 1.0:  data[i]['Satisfaction 1'] = 1.0
             if data[i]['Satisfaction Score'] == 2.0:  data[i]['Satisfaction 2'] = 1.0
             if data[i]['Satisfaction Score'] == 3.0:  data[i]['Satisfaction 3'] = 1.0
             if data[i]['Satisfaction Score'] == 4.0:  data[i]['Satisfaction 4'] = 1.0
             if data[i]['Satisfaction Score'] == 5.0:  data[i]['Satisfaction 5'] = 1.0
+        
+        if target_status[5]:
+            initializer = None if data[i]['Churn Category'] == None else -1.0
+            
+            data[i]['No Churn']        = initializer
+            data[i]['Competitor']      = initializer
+            data[i]['Dissatisfaction'] = initializer
+            data[i]['Attitude']        = initializer
+            data[i]['Price']           = initializer
+            data[i]['Other']           = initializer
+
+            if data[i]['Churn Category'] == 0.0:  data[i]['No Churn']        = 1.0
+            if data[i]['Churn Category'] == 1.0:  data[i]['Competitor']      = 1.0
+            if data[i]['Churn Category'] == 2.0:  data[i]['Dissatisfaction'] = 1.0
+            if data[i]['Churn Category'] == 3.0:  data[i]['Attitude']        = 1.0
+            if data[i]['Churn Category'] == 4.0:  data[i]['Price']           = 1.0
+            if data[i]['Churn Category'] == 5.0:  data[i]['Other']           = 1.0
 
     extra_category = []
     if target_status[0]:
@@ -555,6 +627,13 @@ def Category2Binary( data_in, DoCopy=False ):
         extra_category.append('Satisfaction 3')
         extra_category.append('Satisfaction 4')
         extra_category.append('Satisfaction 5')
+    if target_status[5]:
+        extra_category.append('No Churn')
+        extra_category.append('Competitor')
+        extra_category.append('Dissatisfaction')
+        extra_category.append('Attitude')
+        extra_category.append('Price')
+        extra_category.append('Other')
 
 
     return data, extra_category

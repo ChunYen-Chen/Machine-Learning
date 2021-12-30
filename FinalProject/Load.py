@@ -34,7 +34,14 @@ def WriteData( file_name, data ):
         
         for i in range(len(data)):
             for j in all_category:
-                cell_data = str(data[i][j])
+                if type(data[i][j]) == type(None):
+                    cell_data = ''
+                elif type(data[i][j]) == type(1):
+                    cell_data = '%d'%data[i][j]
+                elif type(data[i][j]) == type(1.0):
+                    cell_data = '%.2f'%data[i][j]
+                else:
+                    cell_data = data[i][j]
                 if j == 'Customer ID':
                     f.write('%s'%cell_data)
                 elif j == 'Lat Long':
@@ -420,6 +427,7 @@ def FixInetrnet( data_in, DoCopy=False ):
     data = copy.deepcopy(data_in) if DoCopy else data_in
     
     for i in range(len(data)):
+        if data[i]['Internet Service'] == 0.0: data[i]['Internet Type'] = 0.0
         if   data[i]['Internet Type'] == None: continue
         elif data[i]['Internet Type'] == 0.0:  data[i]['Internet Service'] = 0.0
         elif data[i]['Internet Type'] != 0.0:  data[i]['Internet Service'] = 1.0
@@ -460,6 +468,31 @@ def FixLongDistanceCharge( data_in, DoCopy=False ):
     return data
 
 
+def FixTotal( data_in, DoCopy=False ):
+    print('Fixing all the Total Charge category.')
+    
+    data = copy.deepcopy(data_in) if DoCopy else data_in
+    for i in range(len(data)):
+        month    = data[i]['Total Charges']
+        refund   = data[i]['Total Refunds']
+        ext_data = data[i]['Total Extra Data Charges']
+        long     = data[i]['Total Long Distance Charges']
+        revenue  = data[i]['Total Revenue']
+
+        if month != None and refund != None and ext_data != None and long != None and revenue == None:
+            data[i]['Total Revenue'] = month - refund + ext_data + long
+        if month != None and refund != None and ext_data != None and long == None and revenue != None:
+            data[i]['Total Long Distance Charges'] = revenue - month + refund - ext_data
+        if month != None and refund != None and ext_data == None and long != None and revenue != None:
+            data[i]['Total Extra Data Charges'] = revenue - month + refund - long
+        if month != None and refund == None and ext_data != None and long != None and revenue != None:
+            data[i]['Total Refunds'] = revenue - month - ext_data - long
+        if month == None and refund != None and ext_data != None and long != None and revenue != None:
+            data[i]['Total Charges'] = revenue + refund - ext_data - long
+    
+    return data 
+
+
 def FixChurn( data_in, learn_type, DoCopy=False ):
     print('Fixing the Churn category.')
     
@@ -491,12 +524,52 @@ def AppdendCategories( data_in, new_categories, values, DoCopy=False ):
     return data
 
 
-def DataFilter( data, parameters, DoCopy=False ):
-    print('')
+def DataFilter( data_in, parameter, values ):
+    print('Filter the data')
+    
+    data = []
+    for i in range(len(data_in)):
+        for j in range(len(values)):
+            if data_in[i][parameter] == values[j]:
+                data.append(data_in[i])
+
+    return data 
+
+
+"""
+Use this function after DataFillEmpty
+"""
+def Numeric2Category( data_in, DoCopy=False ):
+    print('Transfer numberical data to categroy labels.')
 
     data = copy.deepcopy(data_in) if DoCopy else data_in
+
+    target = ['Tenure in Months']
+    target_status = [False for i in range(len(target))] # 'City' should be one of them.
     
-    return
+    # 1. Check if the label exist.
+    for i in range(len(target)):
+        if target[i] in data[0]: target_status[i] = True
+
+    # 2. Brake into differnt labels
+    for i in range(len(data)):
+        if target_status[0]:
+            initializer = None if data[i]['Tenure in Months'] == None else 0.0
+            
+            data[i]['Tenure'] = initializer
+
+            if   data[i]['Tenure in Months'] == None: pass
+            elif data[i]['Tenure in Months'] > 66.5: data[i]['Tenure'] = 1.0
+            elif data[i]['Tenure in Months'] > 39.5: data[i]['Tenure'] = 2.0
+            elif data[i]['Tenure in Months'] > 23.5: data[i]['Tenure'] = 3.0
+            elif data[i]['Tenure in Months'] >  9.5: data[i]['Tenure'] = 4.0
+            else:                                    data[i]['Tenure'] = 5.0
+
+    extra_category = []
+    if target_status[0]:
+        extra_category.append('Tenure')
+
+    return data, extra_category
 
 
 """
@@ -507,7 +580,8 @@ def Category2Binary( data_in, DoCopy=False ):
 
     data = copy.deepcopy(data_in) if DoCopy else data_in
 
-    target = ['Offer', 'Internet Type', 'Contract', 'Payment Method', 'Satisfaction Score', 'Churn Category'] # 'City' should be one of them.
+    target = ['Offer', 'Internet Type', 'Contract', 'Payment Method', \
+              'Satisfaction Score', 'Churn Category', 'Tenure'] # 'City' should be one of them.
     target_status = [False for i in range(len(target))] # 'City' should be one of them.
     
     # 1. Check if the label exist.
@@ -600,6 +674,21 @@ def Category2Binary( data_in, DoCopy=False ):
             if data[i]['Churn Category'] == 4.0:  data[i]['Price']           = 1.0
             if data[i]['Churn Category'] == 5.0:  data[i]['Other']           = 1.0
 
+        if target_status[6]:
+            initializer = None if data[i]['Tenure'] == None else 0.0
+            
+            data[i]['Tenure 1'] = initializer
+            data[i]['Tenure 2'] = initializer
+            data[i]['Tenure 3'] = initializer
+            data[i]['Tenure 4'] = initializer
+            data[i]['Tenure 5'] = initializer
+
+            if data[i]['Tenure'] == 1.0:  data[i]['Tenure 1'] = 1.0
+            if data[i]['Tenure'] == 2.0:  data[i]['Tenure 2'] = 1.0
+            if data[i]['Tenure'] == 3.0:  data[i]['Tenure 3'] = 1.0
+            if data[i]['Tenure'] == 4.0:  data[i]['Tenure 4'] = 1.0
+            if data[i]['Tenure'] == 5.0:  data[i]['Tenure 5'] = 1.0
+
     extra_category = []
     if target_status[0]:
         extra_category.append('Offer None')
@@ -634,6 +723,12 @@ def Category2Binary( data_in, DoCopy=False ):
         extra_category.append('Attitude')
         extra_category.append('Price')
         extra_category.append('Other')
+    if target_status[6]:
+        extra_category.append('Tenure 1')
+        extra_category.append('Tenure 2')
+        extra_category.append('Tenure 3')
+        extra_category.append('Tenure 4')
+        extra_category.append('Tenure 5')
 
 
     return data, extra_category

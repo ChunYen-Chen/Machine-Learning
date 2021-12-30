@@ -212,6 +212,17 @@ def ADABoost( x, y, iter_max, missing=None ):
     return w_ada 
 
 
-def ValidateLearn( x, y, iter_max=None, missing=None ):
-    
+def ValidateLearn( x, y, valid_num, random=False, seed=None, iter_max=None, missing=None ):
+    # valid_num should be integer
+    N = x.shape[0]
+
+    N_learn = int(N/valid_num)
+    """
+    for i in range(N_learn):
+        x_train =
+        x_valid = 
+        y_train =
+        y_valid =
+    """
+        
     return w

@@ -131,6 +131,14 @@ def recorded_train_parameter( num ):
     elif num == 7:
         train_parameter = ['Satisfaction 1', 'Satisfaction 2', 'Satisfaction 3', 'Satisfaction 4', 'Satisfaction 5',
                            'Churn Category']
+    elif num == 8:
+        train_parameter = [ 'Referred a Friend', 'Phone Service', 'Multiple Lines',\
+                            'Internet None', 'Internet DSL', 'Internet Fiber Optic', 'Internet Cable',\
+                            'Online Security', 'Online Backup', 'Device Protection Plan',\
+                            'Premium Tech Support', 'Streaming TV', 'Streaming Movies', \
+                            'Streaming Music', 'Unlimited Data', 'Paperless Billing', 'Payment Bank',\
+                            'Contract M2M', 'Contract 1Y', 'Contract 2Y',\
+                            'Payment Credit', 'Payment Mailed', 'Monthly Charge']
     else:
         exit('You did not record such a train parameter: %d'%num)
     return train_parameter
@@ -187,9 +195,14 @@ def load_data( train_or_test ):
     data = Load.FixInetrnet( data )           # internet sevice fixed
     data = Load.FixDataUsage( data )          # data usage fixed
     data = Load.FixLongDistanceCharge( data ) # long distance charge fixed
+    data = Load.FixTotal( data )              # all the total charges
+    # since the total value has been updated we can filled some blank back
+    data = Load.FixLongDistanceCharge( data ) # long distance charge fixed
+    data = Load.FixDataUsage( data )          # data usage fixed
 
     # separate the category label to binary label
-    data, extra_category = Load.Category2Binary( data )
+    data, extra_category1 = Load.Numeric2Category( data )
+    data, extra_category2 = Load.Category2Binary( data )
 
     # Churn or not
     data = Load.FixChurn( data, learn_type, DoCopy=True )
@@ -228,11 +241,15 @@ if __name__ == '__main__':
     # ====================================================================================================
     # Select the training data
     # ====================================================================================================
+    data_test  = Load.DataFilter( data_test,  'Offer A', [1] )
+    data_train = Load.DataFilter( data_train, 'Offer A', [1] )
+    print(len(data_train))
+
     # Select the parameter
     # ***For the classification, the last parameter should be "Churn Category" which is "y"***
     
     #train for the monthly charge
-    train_parameter = recorded_train_parameter( 0 )
+    train_parameter = recorded_train_parameter( 8 )
     
     #train_parameter = [ 'Tenure in Months', 'Unlimited Data', 'Churn Category' ]
     #train_parameter = [ 'Unlimited Data', 'Churn Category' ]
@@ -248,17 +265,18 @@ if __name__ == '__main__':
     # Learning
     # ====================================================================================================
     #reg = LogisticRegression(random_state=0).fit( x_train, y_train )
-    reg = LinearRegression().fit( x_train, y_train )
-    w = Learn.ADABoost( x_train[0:60, :], y_train[0:60], 30, missing_train )
+    reg = LinearRegression().fit( x_train[0:260, :], y_train[0:260] )
+    # w = Learn.ADABoost( x_train[0:60, :], y_train[0:60], 30, missing_train )
     #print(w)
 
     
     # ====================================================================================================
     # Predicting
     # ====================================================================================================
-    y_predict = reg.predict( x_test )
-    y_predict2 = Learn.sign(x_train[60:].dot(w))
-    y_predict = Learn.sign(x_test.dot(w))
+    print(x_train)
+    y_predict = reg.predict( x_train[260:, :] )
+    #y_predict2 = Learn.sign(x_train[60:].dot(w))
+    #y_predict = Learn.sign(x_test.dot(w))
     #print(w)
     #print(y_predict2)
 
@@ -287,10 +305,11 @@ if __name__ == '__main__':
     # Error measurement
     # ====================================================================================================
     print('Error')
-    err = Error.Error( x_train, y_train, reg.coef_.T, 1 )
+    #err = Error.Error( x_train, y_train, reg.coef_, 1 )
     print(err)
-    err = Error.Error_withTrue( y_predict, y_test, 1 )
+    #err = Error.Error_withTrue( y_predict, y_test, 1 )
+    err = Error.Error_withTrue( y_predict, y_train[260:], 1 )
     print(err)
-    err = Error.Error_withTrue( y_predict2, y_train[60:], 1 )
+    #err = Error.Error_withTrue( y_predict2, y_train[60:], 1 )
     print(err)
     
